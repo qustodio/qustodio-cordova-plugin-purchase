@@ -415,6 +415,7 @@ declare namespace CdvPurchase {
             productsUpdated(platform: Platform, products: Product[]): void;
             receiptsUpdated(platform: Platform, receipts: Receipt[]): void;
             receiptsReady(platform: Platform): void;
+            userSelectedAlternativeBilling(platform: Platform, alternativeBilling: AlternativeBilling[]): void;
         }
         /** Adapter execution context */
         interface AdapterContext {
@@ -474,6 +475,7 @@ declare namespace CdvPurchase {
             updatedCallbacks: Callbacks<Product>;
             updatedReceiptCallbacks: Callbacks<Receipt>;
             receiptsReadyCallbacks: Callbacks<void>;
+            userSelectedAlternativeBillingCallbacks: Callbacks<AlternativeBilling>;
         }
         /**
          * Monitor the updates for products and receipt.
@@ -525,6 +527,7 @@ declare namespace CdvPurchase {
              * @param receipts The receipts that have been updated.
              */
             receiptsUpdated(platform: Platform, receipts: Receipt[]): void;
+            userSelectedAlternativeBilling(platform: Platform, alternativeBilling: AlternativeBilling[]): void;
         }
     }
 }
@@ -854,6 +857,8 @@ declare namespace CdvPurchase {
         private receiptsReadyCallbacks;
         /** Callbacks when all receipts have been verified */
         private receiptsVerifiedCallbacks;
+        /** Callbacks when userS selected alternativeBilling */
+        private userSelectedAlternativeBillingCallbacks;
         /** Callbacks for errors */
         private errorCallbacks;
         /** Internal implementation of the receipt validation service integration */
@@ -1355,6 +1360,12 @@ declare namespace CdvPurchase {
          * If no platforms have any receipts (user made no purchase), this will also get called.
          */
         receiptsVerified(cb: Callback<void>, callbackName?: string): When;
+        /**
+         * Register a function called when user selected alternative billing.
+         *
+         * If no platforms have any receipts (user made no purchase), this will also get called.
+         */
+        userSelectedAlternativeBilling(cb: Callback<AlternativeBilling>, callbackName?: string): When;
     }
     /** Whether or not the user intends to let the subscription auto-renew. */
     enum RenewalIntent {
@@ -1400,6 +1411,10 @@ declare namespace CdvPurchase {
         CUSTOMER_OTHER_REASON = "Customer.OtherReason",
         /** Subscription canceled for unknown reasons. */
         UNKNOWN = "Unknown"
+    }
+    interface AlternativeBilling {
+        externalTransactionToken: string;
+        originalExternalTransactionId: string;
     }
 }
 declare namespace CdvPurchase {
@@ -4212,6 +4227,7 @@ declare namespace CdvPurchase {
             /** Called when the platform reports some purchases */
             onSetPurchases(purchases: Bridge.Purchase[]): void;
             onPriceChangeConfirmationResult(result: "OK" | "UserCanceled" | "UnknownProduct"): void;
+            onUserSelectedAlternativeBilling(alternativeBilling: Bridge.AlternativeBilling): void;
             /** Refresh purchases from GooglePlay */
             getPurchases(): Promise<IError | undefined>;
             /** @inheritDoc */
@@ -4364,6 +4380,7 @@ declare namespace CdvPurchase {
                 onPurchasesUpdated?: (purchases: Purchase[]) => void;
                 onSetPurchases?: (purchases: Purchase[]) => void;
                 onPriceChangeConfirmationResult?: (result: "OK" | "UserCanceled" | "UnknownProduct") => void;
+                onUserSelectedAlternativeBilling?: (alternativeBilling: AlternativeBilling) => void;
             }
             type ErrorCallback = (message: string, code?: ErrorCode) => void;
             interface Purchase {
@@ -4413,6 +4430,10 @@ declare namespace CdvPurchase {
                 PURCHASED = 1,
                 PENDING = 2
             }
+            interface AlternativeBilling {
+                externalTransactionToken: string;
+                originalExternalTransactionId: string;
+            }
             type Message = {
                 type: "setPurchases";
                 data: {
@@ -4432,6 +4453,11 @@ declare namespace CdvPurchase {
                 type: "onPriceChangeConfirmationResultOK" | "onPriceChangeConfirmationResultUserCanceled" | "onPriceChangeConfirmationResultUnknownSku";
                 data: {
                     purchase: Purchase;
+                };
+            } | {
+                type: "userSelectedAlternativeBilling";
+                data: {
+                    alternativeBilling: AlternativeBilling;
                 };
             };
             class Bridge {

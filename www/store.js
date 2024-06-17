@@ -365,23 +365,6 @@ var CdvPurchase;
 (function (CdvPurchase) {
     /** Product definition from a store */
     class Product {
-        /** @internal */
-        constructor(p, decorator) {
-            /** @internal */
-            this.className = 'Product';
-            /** Product title from the store. */
-            this.title = '';
-            /** Product full description from the store. */
-            this.description = '';
-            this.platform = p.platform;
-            this.type = p.type;
-            this.id = p.id;
-            this.group = p.group;
-            this.offers = [];
-            Object.defineProperty(this, 'pricing', { enumerable: false, get: () => { var _a; return (_a = this.offers[0]) === null || _a === void 0 ? void 0 : _a.pricingPhases[0]; } });
-            Object.defineProperty(this, 'canPurchase', { enumerable: false, get: () => decorator.canPurchase(this) });
-            Object.defineProperty(this, 'owned', { enumerable: false, get: () => decorator.owned(this) });
-        }
         /**
          * Shortcut to offers[0].pricingPhases[0]
          *
@@ -407,6 +390,23 @@ var CdvPurchase;
             // Pseudo implementation to make typescript happy.
             // see Object.defineProperty in the constructor for the actual implementation.
             return false;
+        }
+        /** @internal */
+        constructor(p, decorator) {
+            /** @internal */
+            this.className = 'Product';
+            /** Product title from the store. */
+            this.title = '';
+            /** Product full description from the store. */
+            this.description = '';
+            this.platform = p.platform;
+            this.type = p.type;
+            this.id = p.id;
+            this.group = p.group;
+            this.offers = [];
+            Object.defineProperty(this, 'pricing', { enumerable: false, get: () => { var _a; return (_a = this.offers[0]) === null || _a === void 0 ? void 0 : _a.pricingPhases[0]; } });
+            Object.defineProperty(this, 'canPurchase', { enumerable: false, get: () => decorator.canPurchase(this) });
+            Object.defineProperty(this, 'owned', { enumerable: false, get: () => decorator.owned(this) });
         }
         /**
          * Find and return an offer for this product from its id
@@ -984,6 +984,11 @@ var CdvPurchase;
                     });
                 });
             }
+            userSelectedAlternativeBilling(platform, alternativeBilling) {
+                if (platform === CdvPurchase.Platform.GOOGLE_PLAY) {
+                    this.delegate.userSelectedAlternativeBillingCallbacks.trigger(alternativeBilling[0], 'adapterListener_userSelectedAlternativeBilling');
+                }
+            }
         }
         Internal.StoreAdapterListener = StoreAdapterListener;
     })(Internal = CdvPurchase.Internal || (CdvPurchase.Internal = {}));
@@ -1140,15 +1145,15 @@ var CdvPurchase;
          * monitor.stop();
          */
         class TransactionStateMonitors {
+            findMonitors(transaction) {
+                return this.monitors.filter(monitor => monitor.transaction.platform === transaction.platform
+                    && monitor.transaction.transactionId === transaction.transactionId);
+            }
             constructor(when) {
                 this.monitors = [];
                 when
                     .approved(transaction => this.callOnChange(transaction), 'transactionStateMonitors_callOnChange')
                     .finished(transaction => this.callOnChange(transaction), 'transactionStateMonitors_callOnChange');
-            }
-            findMonitors(transaction) {
-                return this.monitors.filter(monitor => monitor.transaction.platform === transaction.platform
-                    && monitor.transaction.transactionId === transaction.transactionId);
             }
             callOnChange(transaction) {
                 this.findMonitors(transaction).forEach(monitor => {
@@ -1353,6 +1358,24 @@ var CdvPurchase;
      * Entry class of the plugin.
      */
     class Store {
+        /**
+         * Retrieve a platform adapter.
+         *
+         * The platform adapter has to have been initialized before.
+         *
+         * @see {@link initialize}
+         */
+        getAdapter(platform) {
+            return this.adapters.find(platform);
+        }
+        /**
+         * Get the application username as a string by either calling or returning {@link Store.applicationUsername}
+        */
+        getApplicationUsername() {
+            if (this.applicationUsername instanceof Function)
+                return this.applicationUsername();
+            return this.applicationUsername;
+        }
         constructor() {
             /**
              * Payment platform adapters.
@@ -1404,6 +1427,8 @@ var CdvPurchase;
             this.receiptsReadyCallbacks = new CdvPurchase.Internal.Callbacks(this.log, 'receiptsReady()', true);
             /** Callbacks when all receipts have been verified */
             this.receiptsVerifiedCallbacks = new CdvPurchase.Internal.Callbacks(this.log, 'receiptsVerified()', true);
+            /** Callbacks when userS selected alternativeBilling */
+            this.userSelectedAlternativeBillingCallbacks = new CdvPurchase.Internal.Callbacks(this.log, 'userSelectedAlternativeBillingCallbacks()', true);
             /** Callbacks for errors */
             this.errorCallbacks = new CdvPurchase.Internal.Callbacks(this.log, 'error()');
             this.initializedHasBeenCalled = false;
@@ -1426,6 +1451,7 @@ var CdvPurchase;
                 finishedCallbacks: this.finishedCallbacks,
                 pendingCallbacks: this.pendingCallbacks,
                 receiptsReadyCallbacks: this.receiptsReadyCallbacks,
+                userSelectedAlternativeBillingCallbacks: this.userSelectedAlternativeBillingCallbacks,
             }, this.log);
             this.transactionStateMonitors = new CdvPurchase.Internal.TransactionStateMonitors(this.when());
             this._validator = new CdvPurchase.Internal.Validator({
@@ -1459,24 +1485,6 @@ var CdvPurchase;
                 },
             });
             this.expiryMonitor.launch();
-        }
-        /**
-         * Retrieve a platform adapter.
-         *
-         * The platform adapter has to have been initialized before.
-         *
-         * @see {@link initialize}
-         */
-        getAdapter(platform) {
-            return this.adapters.find(platform);
-        }
-        /**
-         * Get the application username as a string by either calling or returning {@link Store.applicationUsername}
-        */
-        getApplicationUsername() {
-            if (this.applicationUsername instanceof Function)
-                return this.applicationUsername();
-            return this.applicationUsername;
         }
         /**
          * Register a product.
@@ -1604,6 +1612,7 @@ var CdvPurchase;
                 unverified: (cb, callbackName) => (this.unverifiedCallbacks.push(cb, callbackName), ret),
                 receiptsReady: (cb, callbackName) => (this.receiptsReadyCallbacks.push(cb, callbackName), ret),
                 receiptsVerified: (cb, callbackName) => (this.receiptsVerifiedCallbacks.push(cb, callbackName), ret),
+                userSelectedAlternativeBilling: (cb, callbackName) => (this.userSelectedAlternativeBillingCallbacks.push(cb, callbackName), ret),
             };
             return ret;
         }
@@ -1620,6 +1629,7 @@ var CdvPurchase;
             this.unverifiedCallbacks.remove(callback);
             this.receiptsReadyCallbacks.remove(callback);
             this.receiptsVerifiedCallbacks.remove(callback);
+            this.userSelectedAlternativeBillingCallbacks.remove(callback);
             this.errorCallbacks.remove(callback);
             this._readyCallbacks.remove(callback);
         }
@@ -2097,20 +2107,6 @@ var CdvPurchase;
      * One of the available offers to purchase a given product
      */
     class Offer {
-        /** @internal */
-        constructor(options, decorator) {
-            /** className, used to make sure we're passing an actual instance of the "Offer" class. */
-            this.className = 'Offer';
-            this.id = options.id;
-            this.pricingPhases = options.pricingPhases;
-            // Object.defineProperty(this, 'product', { enumerable: false, get: () => options.product });
-            Object.defineProperty(this, 'productId', { enumerable: true, get: () => options.product.id });
-            Object.defineProperty(this, 'productType', { enumerable: true, get: () => options.product.type });
-            Object.defineProperty(this, 'productGroup', { enumerable: true, get: () => options.product.group });
-            Object.defineProperty(this, 'platform', { enumerable: true, get: () => options.product.platform });
-            Object.defineProperty(this, 'order', { enumerable: false, get: () => (additionalData) => decorator.order(this, additionalData) });
-            Object.defineProperty(this, 'canPurchase', { enumerable: false, get: () => decorator.canPurchase(this) });
-        }
         /** Identifier of the product related to this offer */
         get productId() { return ''; }
         /** Type of the product related to this offer */
@@ -2139,6 +2135,20 @@ var CdvPurchase;
             // Pseudo implementation to make typescript happy.
             // see Object.defineProperty in the constructor for the actual implementation.
             return false;
+        }
+        /** @internal */
+        constructor(options, decorator) {
+            /** className, used to make sure we're passing an actual instance of the "Offer" class. */
+            this.className = 'Offer';
+            this.id = options.id;
+            this.pricingPhases = options.pricingPhases;
+            // Object.defineProperty(this, 'product', { enumerable: false, get: () => options.product });
+            Object.defineProperty(this, 'productId', { enumerable: true, get: () => options.product.id });
+            Object.defineProperty(this, 'productType', { enumerable: true, get: () => options.product.type });
+            Object.defineProperty(this, 'productGroup', { enumerable: true, get: () => options.product.group });
+            Object.defineProperty(this, 'platform', { enumerable: true, get: () => options.product.platform });
+            Object.defineProperty(this, 'order', { enumerable: false, get: () => (additionalData) => decorator.order(this, additionalData) });
+            Object.defineProperty(this, 'canPurchase', { enumerable: false, get: () => decorator.canPurchase(this) });
         }
     }
     CdvPurchase.Offer = Offer;
@@ -2226,6 +2236,14 @@ var CdvPurchase;
 var CdvPurchase;
 (function (CdvPurchase) {
     class Receipt {
+        /** Verify a receipt */
+        verify() {
+            return __awaiter(this, void 0, void 0, function* () { });
+        }
+        /** Finish all transactions in a receipt */
+        finish() {
+            return __awaiter(this, void 0, void 0, function* () { });
+        }
         /** @internal */
         constructor(platform, decorator) {
             /** @internal */
@@ -2235,14 +2253,6 @@ var CdvPurchase;
             this.platform = platform;
             Object.defineProperty(this, 'verify', { 'enumerable': false, get() { return () => decorator.verify(this); } });
             Object.defineProperty(this, 'finish', { 'enumerable': false, get() { return () => decorator.finish(this); } });
-        }
-        /** Verify a receipt */
-        verify() {
-            return __awaiter(this, void 0, void 0, function* () { });
-        }
-        /** Finish all transactions in a receipt */
-        finish() {
-            return __awaiter(this, void 0, void 0, function* () { });
         }
         /** Return true if the receipt contains the given transaction */
         hasTransaction(value) {
@@ -2264,21 +2274,6 @@ var CdvPurchase;
      * @see {@link store.localTransactions}
      */
     class Transaction {
-        /** @internal */
-        constructor(platform, parentReceipt, decorator) {
-            /** @internal */
-            this.className = 'Transaction';
-            /** Transaction identifier. */
-            this.transactionId = '';
-            /** State this transaction is in */
-            this.state = CdvPurchase.TransactionState.UNKNOWN_STATE;
-            /** Purchased products */
-            this.products = [];
-            this.platform = platform;
-            Object.defineProperty(this, 'finish', { 'enumerable': false, get() { return () => decorator.finish(this); } });
-            Object.defineProperty(this, 'verify', { 'enumerable': false, get() { return () => decorator.verify(this); } });
-            Object.defineProperty(this, 'parentReceipt', { 'enumerable': false, get() { return parentReceipt; } });
-        }
         /**
          * Finish a transaction.
          *
@@ -2312,6 +2307,21 @@ var CdvPurchase;
          * Return the receipt this transaction is part of.
          */
         get parentReceipt() { return {}; } // actual implementation in the constructor
+        /** @internal */
+        constructor(platform, parentReceipt, decorator) {
+            /** @internal */
+            this.className = 'Transaction';
+            /** Transaction identifier. */
+            this.transactionId = '';
+            /** State this transaction is in */
+            this.state = CdvPurchase.TransactionState.UNKNOWN_STATE;
+            /** Purchased products */
+            this.products = [];
+            this.platform = platform;
+            Object.defineProperty(this, 'finish', { 'enumerable': false, get() { return () => decorator.finish(this); } });
+            Object.defineProperty(this, 'verify', { 'enumerable': false, get() { return () => decorator.verify(this); } });
+            Object.defineProperty(this, 'parentReceipt', { 'enumerable': false, get() { return parentReceipt; } });
+        }
     }
     CdvPurchase.Transaction = Transaction;
 })(CdvPurchase || (CdvPurchase = {}));
@@ -2648,6 +2658,23 @@ var CdvPurchase;
          * Adapter for Apple AppStore using StoreKit version 1
          */
         class Adapter {
+            get products() { return this._products; }
+            /** Find a given product from ID */
+            getProduct(id) { return this._products.find(p => p.id === id); }
+            get receipts() {
+                if (!this.isSupported)
+                    return [];
+                return (this._receipt ? [this._receipt] : [])
+                    .concat(this.pseudoReceipt ? this.pseudoReceipt : []);
+            }
+            addValidProducts(registerProducts, validProducts) {
+                validProducts.forEach(vp => {
+                    const rp = registerProducts.find(p => p.id === vp.id);
+                    if (!rp)
+                        return;
+                    this.validProducts[vp.id] = Object.assign(Object.assign({}, vp), rp);
+                });
+            }
             constructor(context, options) {
                 var _a, _b;
                 this.id = CdvPurchase.Platform.APPLE_APPSTORE;
@@ -2679,23 +2706,6 @@ var CdvPurchase;
                 this.receiptsUpdated = CdvPurchase.Utils.debounce(() => {
                     this._receiptsUpdated();
                 }, 300);
-            }
-            get products() { return this._products; }
-            /** Find a given product from ID */
-            getProduct(id) { return this._products.find(p => p.id === id); }
-            get receipts() {
-                if (!this.isSupported)
-                    return [];
-                return (this._receipt ? [this._receipt] : [])
-                    .concat(this.pseudoReceipt ? this.pseudoReceipt : []);
-            }
-            addValidProducts(registerProducts, validProducts) {
-                validProducts.forEach(vp => {
-                    const rp = registerProducts.find(p => p.id === vp.id);
-                    if (!rp)
-                        return;
-                    this.validProducts[vp.id] = Object.assign(Object.assign({}, vp), rp);
-                });
             }
             /** Returns true on iOS, the only platform supported by this adapter */
             get isSupported() {
@@ -3943,6 +3953,7 @@ var CdvPurchase;
         }
         Braintree.BraintreeReceipt = BraintreeReceipt;
         class Adapter {
+            get receipts() { return this._receipts; }
             constructor(context, options) {
                 this.id = CdvPurchase.Platform.BRAINTREE;
                 this.name = 'BrainTree';
@@ -3954,7 +3965,6 @@ var CdvPurchase;
                 this.log = context.log.child("Braintree");
                 this.options = options;
             }
-            get receipts() { return this._receipts; }
             get isSupported() {
                 return Braintree.IosBridge.Bridge.isSupported() || Braintree.AndroidBridge.Bridge.isSupported();
             }
@@ -4805,6 +4815,9 @@ var CdvPurchase;
         }
         GooglePlay.Receipt = Receipt;
         class Adapter {
+            /** List of products managed by the GooglePlay adapter */
+            get products() { return this._products.products; }
+            get receipts() { return this._receipts; }
             constructor(context, autoRefreshIntervalMillis = 1000 * 3600 * 24) {
                 /** Adapter identifier */
                 this.id = CdvPurchase.Platform.GOOGLE_PLAY;
@@ -4829,9 +4842,6 @@ var CdvPurchase;
                 this.log = context.log.child('GooglePlay');
                 Adapter._instance = this;
             }
-            /** List of products managed by the GooglePlay adapter */
-            get products() { return this._products.products; }
-            get receipts() { return this._receipts; }
             /** Returns true on Android, the only platform supported by this adapter */
             get isSupported() {
                 return CdvPurchase.Utils.platformId() === 'android';
@@ -4847,6 +4857,7 @@ var CdvPurchase;
                             onSetPurchases: this.onSetPurchases.bind(this),
                             onPurchasesUpdated: this.onPurchasesUpdated.bind(this),
                             onPurchaseConsumed: this.onPurchaseConsumed.bind(this),
+                            onUserSelectedAlternativeBilling: this.onUserSelectedAlternativeBilling.bind(this),
                             showLog: this.context.verbosity >= CdvPurchase.LogLevel.DEBUG ? true : false,
                             log: (msg) => bridgeLogger.info(msg),
                         };
@@ -4992,6 +5003,10 @@ var CdvPurchase;
                 this.context.listener.receiptsReady(CdvPurchase.Platform.GOOGLE_PLAY);
             }
             onPriceChangeConfirmationResult(result) {
+            }
+            onUserSelectedAlternativeBilling(alternativeBilling) {
+                this.log.debug("onUserSelectedAlternativeBilling: " + JSON.stringify(alternativeBilling));
+                this.context.listener.userSelectedAlternativeBilling(CdvPurchase.Platform.GOOGLE_PLAY, [alternativeBilling]);
             }
             /** Refresh purchases from GooglePlay */
             getPurchases() {
@@ -5265,6 +5280,7 @@ var CdvPurchase;
                         onPurchaseConsumed: options.onPurchaseConsumed,
                         onPurchasesUpdated: options.onPurchasesUpdated,
                         onSetPurchases: options.onSetPurchases,
+                        onUserSelectedAlternativeBilling: options.onUserSelectedAlternativeBilling,
                     };
                     if (this.options.showLog) {
                         log('setup ok');
@@ -5324,6 +5340,9 @@ var CdvPurchase;
                     }
                     if (msg.type === "onPriceChangeConfirmationResultUnknownSku" && this.options.onPriceChangeConfirmationResult) {
                         this.options.onPriceChangeConfirmationResult("UnknownProduct");
+                    }
+                    if (msg.type === "userSelectedAlternativeBilling" && this.options.onUserSelectedAlternativeBilling) {
+                        this.options.onUserSelectedAlternativeBilling(msg.data.alternativeBilling);
                     }
                 }
                 getPurchases(success, fail) {
@@ -6946,6 +6965,10 @@ var CdvPurchase;
 (function (CdvPurchase) {
     /** Receipt data as validated by the receipt validation server */
     class VerifiedReceipt {
+        /** Platform this receipt originated from */
+        get platform() { return this.sourceReceipt.platform; }
+        /** Get raw response data from the receipt validation request */
+        get raw() { return {}; } // actual implementation as "defineProperty" in constructor.
         /**
          * @internal
          */
@@ -6963,10 +6986,6 @@ var CdvPurchase;
             Object.defineProperty(this, 'raw', { 'enumerable': false, get() { return response; } });
             Object.defineProperty(this, 'finish', { 'enumerable': false, get() { return () => decorator.finish(this); } });
         }
-        /** Platform this receipt originated from */
-        get platform() { return this.sourceReceipt.platform; }
-        /** Get raw response data from the receipt validation request */
-        get raw() { return {}; } // actual implementation as "defineProperty" in constructor.
         /**
          * Update the receipt content
          *

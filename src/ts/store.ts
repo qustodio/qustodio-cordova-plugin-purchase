@@ -173,6 +173,10 @@ namespace CdvPurchase {
         /** Callbacks when all receipts have been verified */
         private receiptsVerifiedCallbacks = new Internal.Callbacks<void>(this.log, 'receiptsVerified()', true);
 
+
+        /** Callbacks when userS selected alternativeBilling */
+        private userSelectedAlternativeBillingCallbacks = new Internal.Callbacks<AlternativeBilling>(this.log, 'userSelectedAlternativeBillingCallbacks()', true);
+
         /** Callbacks for errors */
         private errorCallbacks = new Internal.Callbacks<IError>(this.log, 'error()');
 
@@ -195,6 +199,7 @@ namespace CdvPurchase {
                 finishedCallbacks: this.finishedCallbacks,
                 pendingCallbacks: this.pendingCallbacks,
                 receiptsReadyCallbacks: this.receiptsReadyCallbacks,
+                userSelectedAlternativeBillingCallbacks: this.userSelectedAlternativeBillingCallbacks,
             }, this.log);
             this.transactionStateMonitors = new Internal.TransactionStateMonitors(this.when());
             this._validator = new Internal.Validator({
@@ -366,6 +371,7 @@ namespace CdvPurchase {
                 unverified: (cb: Callback<UnverifiedReceipt>, callbackName?: string) => (this.unverifiedCallbacks.push(cb, callbackName), ret),
                 receiptsReady: (cb: Callback<void>, callbackName?: string) => (this.receiptsReadyCallbacks.push(cb, callbackName), ret),
                 receiptsVerified: (cb: Callback<void>, callbackName?: string) => (this.receiptsVerifiedCallbacks.push(cb, callbackName), ret),
+                userSelectedAlternativeBilling: (cb: Callback<AlternativeBilling>, callbackName?: string) => (this.userSelectedAlternativeBillingCallbacks.push(cb, callbackName), ret),
             };
             return ret;
         }
@@ -383,6 +389,7 @@ namespace CdvPurchase {
             this.unverifiedCallbacks.remove(callback as any);
             this.receiptsReadyCallbacks.remove(callback as any);
             this.receiptsVerifiedCallbacks.remove(callback as any);
+            this.userSelectedAlternativeBillingCallbacks.remove(callback as any);
             this.errorCallbacks.remove(callback as any);
             this._readyCallbacks.remove(callback as any);
         }

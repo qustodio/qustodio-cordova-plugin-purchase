@@ -141,6 +141,7 @@ namespace CdvPurchase {
                         onSetPurchases: this.onSetPurchases.bind(this),
                         onPurchasesUpdated: this.onPurchasesUpdated.bind(this),
                         onPurchaseConsumed: this.onPurchaseConsumed.bind(this),
+                        onUserSelectedAlternativeBilling: this.onUserSelectedAlternativeBilling.bind(this),
                         showLog: this.context.verbosity >= LogLevel.DEBUG ? true : false,
                         log: (msg: string) => bridgeLogger.info(msg),
                     }
@@ -311,6 +312,11 @@ namespace CdvPurchase {
             }
 
             onPriceChangeConfirmationResult(result: "OK" | "UserCanceled" | "UnknownProduct"): void {
+            }
+
+            onUserSelectedAlternativeBilling(alternativeBilling: Bridge.AlternativeBilling): void {
+                this.log.debug("onUserSelectedAlternativeBilling: " + JSON.stringify(alternativeBilling));
+                this.context.listener.userSelectedAlternativeBilling(Platform.GOOGLE_PLAY, [alternativeBilling]);
             }
 
             /** Refresh purchases from GooglePlay */

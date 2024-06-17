@@ -22,6 +22,7 @@ package cc.fovea;
 import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
+import androidx.annotation.NonNull;
 import com.android.billingclient.api.AcknowledgePurchaseParams;
 import com.android.billingclient.api.AcknowledgePurchaseResponseListener;
 import com.android.billingclient.api.BillingClient;
@@ -45,6 +46,8 @@ import com.android.billingclient.api.PurchasesUpdatedListener;
 import com.android.billingclient.api.QueryProductDetailsParams;
 import com.android.billingclient.api.QueryProductDetailsParams.Product;
 import com.android.billingclient.api.QueryPurchasesParams;
+import com.android.billingclient.api.UserChoiceBillingListener;
+import com.android.billingclient.api.UserChoiceDetails;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -67,7 +70,8 @@ public final class PurchasePlugin
         extends CordovaPlugin
         implements PurchasesUpdatedListener,
         ConsumeResponseListener,
-        AcknowledgePurchaseResponseListener {
+        AcknowledgePurchaseResponseListener,
+        UserChoiceBillingListener {
 
   /** Tag used for log messages. */
   private final String mTag = "CdvPurchase";
@@ -299,6 +303,7 @@ public final class PurchasePlugin
 
     mBillingClient = BillingClient
       .newBuilder(cordova.getActivity())
+      .enableUserChoiceBilling(this)
       .enablePendingPurchases()
       .setListener(this)
       .build();
@@ -1293,5 +1298,21 @@ public final class PurchasePlugin
       ? result.getDebugMessage()
       : codeToMessage(code);
     return codeToString(code) + ": " + message;
+  }
+
+  @Override
+  public void userSelectedAlternativeBilling(@NonNull UserChoiceDetails userChoiceDetails) {
+    try {
+      Log.d(mTag, "userSelectedAlternativeBilling() -> " + userChoiceDetails.toString());
+
+      JSONObject transaction = new JSONObject()
+        .put("externalTransactionToken", userChoiceDetails.getExternalTransactionToken())
+        .put("originalExternalTransactionId", userChoiceDetails.getOriginalExternalTransactionId());
+
+      sendToListener("userSelectedAlternativeBilling", transaction);
+    } catch (JSONException e) {
+      Log.w(mTag, "userSelectedAlternativeBilling() -> JSONException " + e.getMessage());
+      callError(Constants.ERR_PURCHASE, e.getMessage());
+    }
   }
 }

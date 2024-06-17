@@ -39,6 +39,7 @@ namespace CdvPurchase
             productsUpdated(platform: Platform, products: Product[]): void;
             receiptsUpdated(platform: Platform, receipts: Receipt[]): void;
             receiptsReady(platform: Platform): void;
+            userSelectedAlternativeBilling(platform: Platform, alternativeBilling: AlternativeBilling[]): void;
         }
 
         /** Adapter execution context */
