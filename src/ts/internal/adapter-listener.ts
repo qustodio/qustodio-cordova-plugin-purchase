@@ -10,6 +10,7 @@ namespace CdvPurchase
             updatedCallbacks: Callbacks<Product>;
             updatedReceiptCallbacks: Callbacks<Receipt>;
             receiptsReadyCallbacks: Callbacks<void>;
+            userSelectedAlternativeBillingCallbacks: Callbacks<AlternativeBilling>;
         }
 
         /**
@@ -130,6 +131,13 @@ namespace CdvPurchase
                     });
                 });
             }
+
+            userSelectedAlternativeBilling(platform: Platform, alternativeBilling: AlternativeBilling[]): void {
+                if(platform === Platform.GOOGLE_PLAY) {
+                    this.delegate.userSelectedAlternativeBillingCallbacks.trigger(alternativeBilling[0], 'adapterListener_userSelectedAlternativeBilling');
+                }
+            }
+
         }
     }
 }

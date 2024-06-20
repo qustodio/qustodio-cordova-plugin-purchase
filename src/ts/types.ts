@@ -335,6 +335,14 @@ namespace CdvPurchase {
          * If no platforms have any receipts (user made no purchase), this will also get called.
          */
         receiptsVerified(cb: Callback<void>, callbackName?: string): When;
+
+        /**
+         * Register a function called when user selected alternative billing.
+         *
+         * If no platforms have any receipts (user made no purchase), this will also get called.
+         */
+        userSelectedAlternativeBilling(cb: Callback<AlternativeBilling>, callbackName?: string): When;
+
     }
 
     /** Whether or not the user intends to let the subscription auto-renew. */
@@ -383,5 +391,9 @@ namespace CdvPurchase {
         CUSTOMER_OTHER_REASON = 'Customer.OtherReason',
         /** Subscription canceled for unknown reasons. */
         UNKNOWN = 'Unknown'
+    }
+    export interface AlternativeBilling {
+        externalTransactionToken: string;
+        originalExternalTransactionId: string;
     }
 }

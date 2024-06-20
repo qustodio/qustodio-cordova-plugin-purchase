@@ -94,6 +94,7 @@ namespace CdvPurchase {
                 onPurchasesUpdated?: (purchases: Purchase[]) => void;
                 onSetPurchases?: (purchases: Purchase[]) => void;
                 onPriceChangeConfirmationResult?: (result: "OK" | "UserCanceled" | "UnknownProduct") => void;
+                onUserSelectedAlternativeBilling?: (alternativeBilling: AlternativeBilling) => void;
             }
 
             export type ErrorCallback = (message: string, code?: ErrorCode) => void;
@@ -164,6 +165,11 @@ namespace CdvPurchase {
                 PENDING = 2,
             }
 
+            export interface AlternativeBilling {
+                externalTransactionToken: string;
+                originalExternalTransactionId: string;
+            }
+
 
             export type Message = {
                 type: "setPurchases";
@@ -177,6 +183,9 @@ namespace CdvPurchase {
             } | {
                 type: "onPriceChangeConfirmationResultOK" | "onPriceChangeConfirmationResultUserCanceled" | "onPriceChangeConfirmationResultUnknownSku";
                 data: { purchase: Purchase; }
+            } | {
+                type: "userSelectedAlternativeBilling";
+                data: { alternativeBilling: AlternativeBilling }
             };
 
             export class Bridge {
@@ -194,6 +203,7 @@ namespace CdvPurchase {
                         onPurchaseConsumed: options.onPurchaseConsumed,
                         onPurchasesUpdated: options.onPurchasesUpdated,
                         onSetPurchases: options.onSetPurchases,
+                        onUserSelectedAlternativeBilling: options.onUserSelectedAlternativeBilling,
                     };
 
                     if (this.options.showLog) {
@@ -257,6 +267,9 @@ namespace CdvPurchase {
                     }
                     if (msg.type === "onPriceChangeConfirmationResultUnknownSku" && this.options.onPriceChangeConfirmationResult) {
                         this.options.onPriceChangeConfirmationResult("UnknownProduct");
+                    }
+                    if(msg.type === "userSelectedAlternativeBilling" && this.options.onUserSelectedAlternativeBilling) {
+                        this.options.onUserSelectedAlternativeBilling(msg.data.alternativeBilling);
                     }
                 }
 
